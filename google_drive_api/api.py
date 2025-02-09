@@ -46,6 +46,26 @@ class GoogleDriveApi:
             DRIVE_API_UPLOAD_FILES, file_metadata, open_stream, **kwargs
         )
 
+    async def resumable_upload_file(
+        self,
+        file_metadata: dict[str, Any],
+        open_stream: Callable[
+            [], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]
+        ],
+        stream_size: int,
+        max_retries: int = 10,
+        **kwargs: Any,
+    ) -> aiohttp.ClientResponse:
+        """Resumable upload a new file (for media upload requests)."""
+        return await self._auth.resumable_post(
+            DRIVE_API_UPLOAD_FILES,
+            file_metadata,
+            open_stream,
+            stream_size,
+            max_retries,
+            **kwargs,
+        )
+
     async def get_file_content(
         self, file_id: str, **kwargs: Any
     ) -> aiohttp.ClientResponse:
