@@ -4,11 +4,11 @@ Callers subclass this to provide an asyncio implementation that refreshes
 authentication tokens.
 """
 
-from abc import ABC, abstractmethod
 import asyncio
+import logging
+from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from http import HTTPStatus
-import logging
 from typing import Any
 
 import aiohttp
@@ -27,9 +27,7 @@ STATUS = "status"
 MESSAGE = "message"
 
 
-async def _async_skip_first_n_bytes(
-    data: AsyncIterator[bytes] | bytes, n: int
-) -> AsyncIterator[bytes]:
+async def _async_skip_first_n_bytes(data: AsyncIterator[bytes] | bytes, n: int) -> AsyncIterator[bytes]:
     if isinstance(data, bytes):
         yield data[n:]
         return
@@ -40,7 +38,7 @@ async def _async_skip_first_n_bytes(
             if len(chunk) <= remaining_to_skip:
                 skipped += len(chunk)
                 continue
-            chunk = chunk[remaining_to_skip:]
+            chunk = chunk[remaining_to_skip:]  # noqa: PLW2901
             skipped = n
         yield chunk
 
@@ -124,9 +122,7 @@ class AbstractAuth(ABC):
         self,
         url: str,
         json: dict[str, Any],
-        open_stream: Callable[
-            [], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]
-        ],
+        open_stream: Callable[[], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]],
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
         """Make a multi part post request."""
@@ -134,9 +130,7 @@ class AbstractAuth(ABC):
         with aiohttp.MultipartWriter() as mpwriter:
             mpwriter.append_json(json)
             mpwriter.append(await open_stream())
-            headers = {
-                "Content-Type": f"multipart/related; boundary={mpwriter.boundary}"
-            }
+            headers = {"Content-Type": f"multipart/related; boundary={mpwriter.boundary}"}
             try:
                 resp = await self.request(
                     "post",
@@ -153,9 +147,7 @@ class AbstractAuth(ABC):
         self,
         url: str,
         json: dict[str, Any],
-        open_stream: Callable[
-            [], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]
-        ],
+        open_stream: Callable[[], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]],
         stream_size: int,
         max_retries: int,
         **kwargs: Any,
@@ -170,12 +162,7 @@ class AbstractAuth(ABC):
                 # https://developers.google.com/drive/api/guides/handle-errors#5xx-errors
                 # https://developers.google.com/drive/api/guides/limits#exponential
                 delay = (
-                    min(2**retry, 64)
-                    if (
-                        last_error is not None
-                        or (resp is not None and (resp.status // 100) == 5)
-                    )
-                    else 0
+                    min(2**retry, 64) if (last_error is not None or (resp is not None and (resp.status // 100) == 5)) else 0
                 )
                 _LOGGER.debug(
                     "resumable: retrying: %s%s after %s seconds",
@@ -198,9 +185,7 @@ class AbstractAuth(ABC):
                         **kwargs,
                     )
                     if resp.status != HTTPStatus.OK:
-                        _LOGGER.debug(
-                            "resumable: initiating upload failed: %s", resp.status
-                        )
+                        _LOGGER.debug("resumable: initiating upload failed: %s", resp.status)
                         continue
                     resumable_session_uri = resp.headers["Location"]
 
@@ -225,9 +210,7 @@ class AbstractAuth(ABC):
                         continue
                     # A 308 Resume Incomplete response indicates that you must continue to upload the file.
                     if resp.status != 308:
-                        _LOGGER.debug(
-                            "resumable: upload status failed: %s", resp.status
-                        )
+                        _LOGGER.debug("resumable: upload status failed: %s", resp.status)
                         continue
                     # If the response doesn't have a Range header, no bytes have been received.
                     # A Range header of bytes=0-42 indicates that the first 43 bytes of the file were received
@@ -269,9 +252,7 @@ class AbstractAuth(ABC):
         return await AbstractAuth._raise_for_status(resp)
 
     @classmethod
-    async def _raise_for_status(
-        cls, resp: aiohttp.ClientResponse
-    ) -> aiohttp.ClientResponse:
+    async def _raise_for_status(cls, resp: aiohttp.ClientResponse) -> aiohttp.ClientResponse:
         """Raise exceptions on failure methods."""
         error_detail = await cls._error_detail(resp)
         try:

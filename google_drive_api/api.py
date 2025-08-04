@@ -36,22 +36,16 @@ class GoogleDriveApi:
     async def upload_file(
         self,
         file_metadata: dict[str, Any],
-        open_stream: Callable[
-            [], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]
-        ],
+        open_stream: Callable[[], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]],
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
         """Upload a new file (for media upload requests)."""
-        return await self._auth.multi_part_post(
-            DRIVE_API_UPLOAD_FILES, file_metadata, open_stream, **kwargs
-        )
+        return await self._auth.multi_part_post(DRIVE_API_UPLOAD_FILES, file_metadata, open_stream, **kwargs)
 
     async def resumable_upload_file(
         self,
         file_metadata: dict[str, Any],
-        open_stream: Callable[
-            [], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]
-        ],
+        open_stream: Callable[[], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]],
         stream_size: int,
         max_retries: int = 10,
         **kwargs: Any,
@@ -66,13 +60,9 @@ class GoogleDriveApi:
             **kwargs,
         )
 
-    async def get_file_content(
-        self, file_id: str, **kwargs: Any
-    ) -> aiohttp.ClientResponse:
+    async def get_file_content(self, file_id: str, **kwargs: Any) -> aiohttp.ClientResponse:
         """Get a file's content by ID."""
-        return await self._auth.get(
-            f"{DRIVE_API_FILES}/{file_id}", params={"alt": "media"}, **kwargs
-        )
+        return await self._auth.get(f"{DRIVE_API_FILES}/{file_id}", params={"alt": "media"}, **kwargs)
 
     async def delete_file(self, file_id: str, **kwargs: Any) -> aiohttp.ClientResponse:
         """Permanently delete a file owned by the user without moving it to the trash."""
