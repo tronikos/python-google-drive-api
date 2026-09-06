@@ -62,12 +62,31 @@ class GoogleDriveApi:
 
     async def get_file_content(self, file_id: str, **kwargs: Any) -> aiohttp.ClientResponse:
         """Get a file's content by ID."""
-        return await self._auth.get(f"{DRIVE_API_FILES}/{file_id}", params={"alt": "media"}, **kwargs)
+        params = {"alt": "media", **(kwargs.pop("params", None) or {})}
+        return await self._auth.get(f"{DRIVE_API_FILES}/{file_id}", params=params, **kwargs)
 
     async def delete_file(self, file_id: str, **kwargs: Any) -> aiohttp.ClientResponse:
         """Permanently delete a file owned by the user without moving it to the trash."""
         return await self._auth.delete(f"{DRIVE_API_FILES}/{file_id}", **kwargs)
 
     async def list_files(self, **kwargs: Any) -> dict[str, Any]:
-        """List the user's files."""
+        """List the user's files.
+
+        Returns a single page. Use list_all_files to follow nextPageToken.
+        """
         return await self._auth.get_json(DRIVE_API_FILES, **kwargs)
+
+    async def list_all_files(self, **kwargs: Any) -> AsyncIterator[dict[str, Any]]:
+        """List all of the user's files, following nextPageToken.
+
+        Note that fields must include nextPageToken for pagination to happen, e.g.
+        fields="nextPageToken,files(id,name)".
+        """
+        params = dict(kwargs.pop("params", None) or {})
+        while True:
+            res = await self.list_files(params=params, **kwargs)
+            for file in res.get("files", []):
+                yield file
+            if not (page_token := res.get("nextPageToken")):
+                return
+            params["pageToken"] = page_token

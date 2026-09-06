@@ -1,28 +1,14 @@
 """Google Drive API Data Model."""
 
 from dataclasses import dataclass, field
-from http import HTTPStatus
 from typing import Any
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
 __all__ = [
-    "Status",
+    "Error",
+    "ErrorResponse",
 ]
-
-
-@dataclass
-class Status(DataClassJSONMixin):
-    """Status of the media item."""
-
-    code: int = field(default=HTTPStatus.OK)
-    """The status code, which should be an enum value of google.rpc.Code"""
-
-    message: str | None = None
-    """A developer-facing error message, which should be in English"""
-
-    details: list[dict[str, Any]] = field(default_factory=list)
-    """A list of messages that carry the error details"""
 
 
 @dataclass
@@ -32,7 +18,17 @@ class Error:
     status: str | None = None
     code: int | None = None
     message: str | None = None
-    details: list[dict[str, Any]] | None = field(default_factory=list)
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    """Machine readable details, e.g. [{"domain": ..., "reason": "rateLimitExceeded"}]"""
+
+    details: list[dict[str, Any]] = field(default_factory=list)
+    """A list of messages that carry the error details"""
+
+    @property
+    def reasons(self) -> set[str]:
+        """Return the machine readable reasons reported by the API."""
+        # https://developers.google.com/drive/api/guides/handle-errors
+        return {str(error["reason"]) for error in self.errors if "reason" in error}
 
     def __str__(self) -> str:
         """Return a string representation of the error details."""
@@ -48,8 +44,8 @@ class Error:
             if error_message:
                 error_message += ": "
             error_message += self.message
-        if self.details:
-            error_message += f"\nError details: ({self.details})"
+        if details := self.errors or self.details:
+            error_message += f"\nError details: ({details})"
         return error_message
 
 

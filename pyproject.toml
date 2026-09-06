@@ -1,6 +1,6 @@
 [project]
 name = "python-google-drive-api"
-version = "0.1.0"
+version = "0.2.0"
 license = "Apache-2.0"
 authors = [
     { name="tronikos", email="tronikos@gmail.com" },
@@ -16,6 +16,9 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest",
+    "pytest-aiohttp",
+    "pytest-asyncio",
+    "pytest-cov",
 ]
 
 
@@ -81,6 +84,13 @@ strict = true
 show_error_codes = true
 warn_incomplete_stub = true
 enable_error_code = ["ignore-without-code", "redundant-self", "truthy-iterable"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--cov=google_drive_api --cov-report=term-missing --cov-fail-under=90"
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "@abstractmethod"]
 
 [tool.codespell]
 skip = "*.json,*.csv,*.lock,./.git/*,./.venv/*"
