@@ -1,5 +1,6 @@
 """Tests for Google Drive authentication and the resumable upload protocol."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any, ClassVar
 
@@ -661,3 +662,32 @@ async def test_error_detail_unreadable_body() -> None:
     """Test that an unreadable error body is reported as a plain API error."""
     with pytest.raises(ApiException, match="Error from API: connection reset"):
         await AbstractAuth._raise_for_status(BrokenResponse())  # type: ignore[arg-type]
+
+
+async def test_resumable_post_retries_client_timeout(
+    auth: FakeAuth, drive: FakeDrive, backoffs: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that a client timeout is retried rather than escaping the loop.
+
+    Before Python 3.11 asyncio.TimeoutError is not the builtin TimeoutError.
+    """
+    drive.queue(
+        drive.session_started(),
+        resume_incomplete(received=2),
+        web.json_response({"id": "file-id"}),
+    )
+    calls = {"n": 0}
+    real_request = AbstractAuth.request
+
+    async def flaky(self: AbstractAuth, method: str, url: str, **kwargs: Any) -> Any:
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise asyncio.TimeoutError
+        return await real_request(self, method, url, **kwargs)
+
+    monkeypatch.setattr(AbstractAuth, "request", flaky)
+
+    resp = await auth.resumable_post(drive.url, {}, open_bytes(b"hello"), 5, 3)
+
+    assert resp.status == 200
+    assert drive.requests[-1].headers["Content-Range"] == "bytes 2-4/5"

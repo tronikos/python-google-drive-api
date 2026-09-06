@@ -27,9 +27,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 AUTHORIZATION_HEADER = "Authorization"
-ERROR = "error"
-STATUS = "status"
-MESSAGE = "message"
 
 # https://developers.google.com/drive/api/guides/manage-uploads#resumable
 # "308 Resume Incomplete" means the upload is not done yet. It is not a redirect,
@@ -317,7 +314,9 @@ class AbstractAuth(ABC):
                 )
                 if (resp := await attempt) is not None:
                     return resp
-            except (aiohttp.ClientError, TimeoutError) as err:
+            except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError) as err:
+                # Before Python 3.11 asyncio.TimeoutError is not the builtin one,
+                # so a client timeout would otherwise escape the retry loop.
                 last_error = err
                 _LOGGER.debug("resumable: retrying: %s", err)
         if last_error is not None:
