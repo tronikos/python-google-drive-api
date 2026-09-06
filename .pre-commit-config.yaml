@@ -39,6 +39,8 @@ repos:
         additional_dependencies:
           - aiohttp
           - mashumaro
+          - pytest
+          - pytest-aiohttp
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.38.0
     hooks:
