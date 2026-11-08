@@ -3,8 +3,15 @@
 import pytest
 from aiohttp import web
 
+import google_drive_api
 from google_drive_api.api import GoogleDriveApi
 from tests.conftest import FakeDrive, open_bytes
+
+
+def test_package_exports() -> None:
+    """Test that all submodules declared in __all__ are imported."""
+    for name in google_drive_api.__all__:
+        assert hasattr(google_drive_api, name)
 
 
 @pytest.fixture(autouse=True)

@@ -176,7 +176,7 @@ class AbstractAuth(ABC):
         """Make a request."""
         try:
             access_token = await self.async_get_access_token()
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError) as err:
             raise AuthException(f"Access token failure: {err}") from err
         # Copy so that a headers dict reused by the caller doesn't get pinned to
         # the first access token, which would keep being sent after it expires.
@@ -192,7 +192,7 @@ class AbstractAuth(ABC):
         """Make a get request."""
         try:
             resp = await self.request("get", url, **kwargs)
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError) as err:
             raise ApiException(f"Error connecting to API: {err}") from err
         return await AbstractAuth._raise_for_status(resp)
 
@@ -205,7 +205,7 @@ class AbstractAuth(ABC):
         resp = await self.get(url, **kwargs)
         try:
             result: dict[str, Any] = await resp.json()
-        except (aiohttp.ClientError, ValueError) as err:
+        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError, ValueError) as err:
             # A body that is not json raises JSONDecodeError, which is a ValueError.
             raise ApiException(f"Server returned malformed response: {err}") from err
         _LOGGER.debug("response=%s", result)
@@ -215,7 +215,7 @@ class AbstractAuth(ABC):
         """Make a post request."""
         try:
             resp = await self.request("post", url, **kwargs)
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError) as err:
             raise ApiException(f"Error connecting to API: {err}") from err
         return await AbstractAuth._raise_for_status(resp)
 
@@ -224,7 +224,7 @@ class AbstractAuth(ABC):
         resp = await self.post(url, **kwargs)
         try:
             result: dict[str, Any] = await resp.json()
-        except (aiohttp.ClientError, ValueError) as err:
+        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError, ValueError) as err:
             # A body that is not json raises JSONDecodeError, which is a ValueError.
             raise ApiException(f"Server returned malformed response: {err}") from err
         _LOGGER.debug("response=%s", result)
@@ -257,7 +257,7 @@ class AbstractAuth(ABC):
                     headers=headers,
                     **kwargs,
                 )
-            except aiohttp.ClientError as err:
+            except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError) as err:
                 raise ApiException(f"Error connecting to API: {err}") from err
             return await AbstractAuth._raise_for_status(resp)
 
@@ -501,7 +501,7 @@ class AbstractAuth(ABC):
         """Make a delete request."""
         try:
             resp = await self.request("delete", url, **kwargs)
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError) as err:
             raise ApiException(f"Error connecting to API: {err}") from err
         return await AbstractAuth._raise_for_status(resp)
 
@@ -545,7 +545,7 @@ class AbstractAuth(ABC):
             return None
         try:
             result = await resp.text()
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError):
             return None
         try:
             error_response = ErrorResponse.from_json(result)

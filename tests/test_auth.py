@@ -65,9 +65,10 @@ async def test_request_keeps_caller_authorization(auth: FakeAuth, drive: FakeDri
     assert drive.requests[0].headers["Authorization"] == "Bearer mine"
 
 
-async def test_request_access_token_failure(auth: FakeAuth, drive: FakeDrive) -> None:
+@pytest.mark.parametrize("err", [aiohttp.ClientError("no token"), TimeoutError("timed out")])
+async def test_request_access_token_failure(auth: FakeAuth, drive: FakeDrive, err: Exception) -> None:
     """Test that a failure to refresh the token raises AuthException."""
-    auth.error = aiohttp.ClientError("no token")
+    auth.error = err
 
     with pytest.raises(AuthException, match="Access token failure"):
         await auth.get(drive.url)
@@ -691,3 +692,42 @@ async def test_resumable_post_retries_client_timeout(
 
     assert resp.status == 200
     assert drive.requests[-1].headers["Content-Range"] == "bytes 2-4/5"
+
+
+async def test_timeout_errors_raise_api_exception(auth: FakeAuth, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that TimeoutError on non-resumable methods raises ApiException."""
+
+    async def raise_timeout(*args: Any, **kwargs: Any) -> Any:
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(auth, "request", raise_timeout)
+
+    with pytest.raises(ApiException, match="Error connecting to API"):
+        await auth.get("https://example.com")
+    with pytest.raises(ApiException, match="Error connecting to API"):
+        await auth.post("https://example.com")
+    with pytest.raises(ApiException, match="Error connecting to API"):
+        await auth.delete("https://example.com")
+    with pytest.raises(ApiException, match="Error connecting to API"):
+        await auth.multi_part_post("https://example.com", {}, open_bytes(b"x"))
+
+
+async def test_json_body_read_timeout_raises_api_exception(auth: FakeAuth, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that TimeoutError while reading JSON body raises ApiException."""
+
+    class TimeoutJsonResponse:
+        status = 200
+
+        async def json(self) -> Any:
+            raise TimeoutError("body read timeout")
+
+    async def fake_get(*args: Any, **kwargs: Any) -> Any:
+        return TimeoutJsonResponse()
+
+    monkeypatch.setattr(auth, "get", fake_get)
+    monkeypatch.setattr(auth, "post", fake_get)
+
+    with pytest.raises(ApiException, match="Server returned malformed response"):
+        await auth.get_json("https://example.com")
+    with pytest.raises(ApiException, match="Server returned malformed response"):
+        await auth.post_json("https://example.com")
